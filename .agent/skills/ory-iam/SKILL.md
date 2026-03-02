@@ -93,7 +93,7 @@ Key files:
 ## Hard Rules (apply to ALL sub-skills)
 
 1. **NEVER guess a config key.** Verify against the Kratos v1.3.1 JSON schema.
-2. **NEVER add OPTIONS to Oathkeeper access rules.**
+2. **NEVER add OPTIONS to Oathkeeper's `serve.proxy.cors.allowed_methods` in `oathkeeper.yml`.** Oathkeeper handles CORS preflight internally when CORS is enabled; adding OPTIONS there fails schema validation. However, OPTIONS **IS** valid in `access-rules.yml` match rules (for explicit CORS preflight rules with `anonymous` authenticator).
 3. **ALWAYS run `scripts/validate-infra.sh` before committing.**
 4. **ALWAYS run `tofu validate` before committing.**
 5. **ALWAYS generate a topology report in `docs/infrastructure/` after changes.**

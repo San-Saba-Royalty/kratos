@@ -46,7 +46,7 @@
 ### 2.1 Access Rules [CRITICAL]
 
 - [ ] Default-deny: requests that match no rule are rejected
-- [ ] No `OPTIONS` method in any access rule
+- [ ] No `OPTIONS` in `oathkeeper.yml` `serve.proxy.cors.allowed_methods` (Oathkeeper handles preflight internally; OPTIONS IS allowed in access-rules.yml for explicit CORS preflight rules)
 - [ ] No rule collisions (same URL glob + overlapping methods)
 - [ ] Login/register/recovery routes use `anonymous` authenticator
 - [ ] Protected API routes use `cookie_session` or `bearer_token` authenticator
@@ -92,10 +92,13 @@
 
 ### 3.3 CORS [HIGH]
 
-- [ ] CORS handled at exactly ONE layer (Nginx OR Oathkeeper OR backend — not multiple)
+- [ ] CORS handled at Oathkeeper only (`serve.proxy.cors.enabled: true`)
+- [ ] All Nginx ingresses routing through Oathkeeper have `enable-cors: "false"` explicitly
+- [ ] .NET backend has NO `UseCors()`, NO `AddCors()`, NO `Cors__AllowedOrigins__*` env vars
 - [ ] No wildcard origin (`*`) combined with credentials
 - [ ] All frontend app domains listed in `allowed_origins`
-- [ ] `Access-Control-Allow-Credentials: true` when using cookies
+- [ ] `allow_credentials: true` when using cookies
+- [ ] No `OPTIONS` in `oathkeeper.yml` `serve.proxy.cors.allowed_methods` (OPTIONS IS allowed in access-rules.yml for explicit CORS preflight rules)
 
 ### 3.4 Cookie Domain [CRITICAL]
 
@@ -103,7 +106,22 @@
 - [ ] `session.cookie.domain` set to parent domain (e.g., `.prometheusags.ai`) for cross-subdomain cookie sharing
 - [ ] No proxy cookie rewriting in production
 - [ ] `SameSite` attributes are correct (Lax or Strict, not None without Secure)
+- [ ] `cookie_session.config.only` does NOT filter cookies — `__Secure-` prefix causes mismatch
 - [ ] **Anti-pattern:** Do NOT add `trusted_proxy_ip_cidrs` or `trusted_client_ips` to `serve.public` — NOT valid Kratos v1.3.1 keys (CrashLoopBackOff). Do NOT use `configuration-snippet` (disabled on AKS). Fix CSRF proto at the **app-level proxy** (forward incoming `X-Forwarded-Proto`).
+
+### 3.5 `return_to` Preservation [HIGH]
+
+- [ ] All auth form components (LoginForm, RegistrationForm, RecoveryForm) read `return_to` from search params and forward to Kratos flow initialization URL
+- [ ] Navigation links between auth pages preserve `return_to` via `AuthNavLink` component
+- [ ] `allowed_return_urls` includes all domains that may appear in `return_to`
+- [ ] `default_browser_return_url` points to the main app (not the auth domain)
+
+### 3.6 SignalR + Oathkeeper [HIGH]
+
+- [ ] Custom `IUserIdProvider` (e.g., `OathkeeperUserIdProvider`) registered as singleton BEFORE `AddSignalR()`
+- [ ] Frontend SignalR connections use `withCredentials: true`
+- [ ] Session heartbeat pings HTTP endpoint periodically to extend Kratos sliding window (WebSocket frames do NOT extend sessions)
+- [ ] `cookie_session` authenticator used in SignalR negotiate + WebSocket access rules
 
 ---
 

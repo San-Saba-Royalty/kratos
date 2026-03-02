@@ -1,0 +1,53 @@
+---
+description: Execute the IAM task list with mandatory schema validation at every step
+globs: *
+---
+# Slash Command: /iam-execute
+When the user types `/iam-execute`, you MUST follow these instructions strictly:
+
+
+# IAM Execute
+
+Work through the PLAN task list. Every config change must pass validation.
+
+## Step 1 — Load the EXECUTE Skill
+
+Read `.agent/skills/ory-iam/execute/SKILL.md` for the full protocol.
+
+## Step 2 — Load Task List
+
+Read `plan/tasks.md` produced by `/iam-plan`.
+
+## Step 3 — Execute Tasks
+
+For EACH task in the list:
+
+1. Make the code/config change
+2. Run validation:
+// turbo
+
+```bash
+scripts/validate-infra.sh
+```
+
+3. If FAIL → fix before continuing. Do NOT proceed with failures.
+2. Mark task as complete in `plan/tasks.md`
+3. Move to next task
+
+## Step 4 — Post-Execute Validation
+
+After all tasks complete:
+
+// turbo
+
+```bash
+cd k8s/opentofu && /opt/homebrew/bin/tofu validate
+```
+
+## Step 5 — Generate Topology Report
+
+Generate `docs/infrastructure/topology-YYYY-MM-DD-HHmm.md` using the `/infra-topology-audit` workflow.
+
+## Step 6 — Next Phase
+
+Proceed to `/iam-reflect` for post-deploy analysis, then `/iam-assess` for compliance scoring.

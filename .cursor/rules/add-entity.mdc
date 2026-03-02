@@ -1,0 +1,65 @@
+---
+description: Build a full-stack CRUD management page for an entity using the add-entity-management skill
+globs: *
+---
+# Slash Command: /add-entity
+When the user types `/add-entity`, you MUST follow these instructions strictly:
+
+
+Build a complete entity management page (backend + frontend + tests) using the `add-entity-management` skill.
+
+**Input**: The argument after `/add-entity` is the entity name (e.g., `Counties`, `Buyers`, `Operators`).
+
+**Steps**
+
+1. **If no entity name provided, ask what entity to build**
+
+   Ask the user:
+   > "Which entity do you want to build a management page for? (e.g., Buyers, Counties, Operators, Referrals, Appraisal Groups, Lien Types, Curative Types, Deal Statuses, Letter Agreement Deal Statuses, Users)"
+
+   **IMPORTANT**: Do NOT proceed without knowing the entity name.
+
+2. **Read the skill instructions**
+
+   Read the full skill file:
+   ```
+   /Users/gqadonis/Projects/sansaba/ssr-frontend/.agent/skills/add-entity-management/SKILL.md
+   ```
+   // turbo
+
+3. **Follow the skill's 10-step workflow exactly**
+
+   The skill defines a precise 10-step process. Execute each step in order:
+
+   - **Step 0**: Read reference files (entity-registry, backend-templates, frontend-templates)
+   - **Step 1**: Audit existing infrastructure (backend controller, hub, entity, DbSet; frontend type, store, signalr, hook, API client, navigation)
+   - **Step 2**: Backend scaffolding (create/verify controller, hub, entity, DbContext, Program.cs)
+   - **Step 3**: Generate SignalR store (invoke `generate-signalr-store` sub-skill)
+   - **Step 4**: Generate data table (invoke `generate-data-table` sub-skill)
+   - **Step 5**: Generate editor dialog (invoke `generate-entity-dialog` sub-skill)
+   - **Step 6**: Assemble page component
+   - **Step 7**: Wire navigation (verify sidebar link exists)
+   - **Step 8**: Generate BDD tests (invoke `bdd-testing` sub-skill)
+   - **Step 9**: Verify (`pnpm exec tsc --noEmit`)
+
+   For each step, update the user on progress before proceeding to the next.
+
+4. **Verify everything compiles**
+   ```bash
+   cd /Users/gqadonis/Projects/sansaba/ssr-frontend && pnpm exec tsc --noEmit
+   ```
+
+5. **Summary**
+
+   After completing all steps, summarize:
+   - Entity name and what was created vs extended
+   - Files created and modified
+   - BDD test scenarios generated
+   - Any issues encountered and how they were resolved
+
+**Guardrails**
+- Always read the full SKILL.md before starting — it contains critical patterns and anti-patterns
+- Follow the entity-registry.md for naming conventions (PascalCase, camelCase, kebab-case)
+- Check the audit results carefully — skip steps where infrastructure already exists
+- Run `pnpm exec tsc --noEmit` after each major step to catch type errors early
+- If the backend API is not running on port 5054, warn the user (it must be the `ssr-backend` API, NOT `SSRBlazor`)

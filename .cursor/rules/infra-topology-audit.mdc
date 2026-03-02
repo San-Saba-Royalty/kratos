@@ -1,0 +1,175 @@
+---
+description: Mandatory deployment topology audit after any infrastructure change (OpenTofu, k8s, Nginx, Oathkeeper, Kratos, etc.)
+globs: *
+---
+# Slash Command: /infra-topology-audit
+When the user types `/infra-topology-audit`, you MUST follow these instructions strictly:
+
+
+# Infrastructure Topology Audit Workflow
+
+// turbo-all
+
+## When to Run
+
+You MUST run this workflow in full after ANY change to:
+
+- Any `.tf` file in any project's `k8s/opentofu/` directory
+- Any `.tpl` template file (Oathkeeper rules, config templates)
+- Any Kubernetes manifest (`.yaml` / `.yml`) in `k8s/`
+- Any `Dockerfile` or container image tag change
+- Any secret or environment variable addition/removal
+- Nginx ingress annotations changes
+- Kratos, Oathkeeper, or any reverse proxy configuration
+
+The topology report MUST be generated BEFORE committing the change.
+
+
+## Step 1 — Identify Changed Components
+
+List every file changed in the current diff:
+
+```bash
+git diff --name-only HEAD
+```
+
+Map each changed file to the component it affects:
+
+- `kratos.tf` → Kratos config, secrets, deployment
+- `oathkeeper.tf` / `oathkeeper.yml.tpl` / `access-rules.yml.tpl` → Oathkeeper proxy, access rules
+- `ingress.tf` → Nginx routing rules
+- `iam-app.tf` → IAM Next.js app deployment and env vars
+- `ssr-backend/k8s/opentofu/main.tf` → SSR backend deployment, service, ingress
+- `webhook-handler.tf` → Webhook handler deployment
+- `postgres.tf` / `redis.tf` → Data layer
+
+
+## Step 2 — Reverse Proxy Trust Audit
+
+For EVERY service that was changed OR that sits behind a reverse proxy, verify:
+
+### 2a. Trusted Proxy Headers
+
+**Question:** Does this service generate scheme-dependent tokens (CSRF, OIDC, session cookies, redirect URLs)?
+
+If YES, verify:
+
+- Kratos: `serve.public.trusted_proxy_ip_cidrs` is set (MUST be `["0.0.0.0/0"]` or AKS node CIDR)
+- Any other service: equivalent proxy trust config exists
+
+**⚠️ CRITICAL:** Without trusted proxy config, Kratos binds CSRF tokens to `http://` when behind Nginx TLS termination. This causes `security_csrf_violation` on EVERY login and logout flow.
+
+Required in `kratos.tf` `serve.public` block:
+
+```hcl
+trusted_proxy_ip_cidrs = ["0.0.0.0/0"]
+```
+
+### 2b. X-Forwarded-Proto
+
+Verify Nginx is sending `X-Forwarded-Proto: https` (it does by default with `ssl-redirect = true`). Confirm the backend service is configured to trust and use it.
+
+
+## Step 3 — CORS Audit
+
+For every changed service, verify:
+
+| Check | Kratos | Oathkeeper | ssr-backend | iam-app |
+|---|---|---|---|---|
+| `OPTIONS` method in allowed_methods | Required | Required | Required | Required |
+| `allow_credentials: true` | Required | Required | Required | N/A |
+| All relevant origins listed | Required | Required | Required | Required |
+| Production cookie rewrite disabled | N/A | N/A | N/A | ✅ (in route.ts) |
+
+
+## Step 4 — Cookie / Session Audit
+
+For any change touching Kratos config or the IAM Next.js proxy:
+
+- Confirm `serve.public.base_url` is `https://` (not `http://`)
+- Confirm `trusted_proxy_ip_cidrs` is set (step 2)
+- Confirm `app/api/.ory/[...path]/route.ts` does NOT rewrite cookies in production (`NODE_ENV === 'production'` guard is in place)
+- Confirm cookie domain matches deployment domain (`.prometheusags.ai`)
+
+
+## Step 5 — Secrets Injection Audit
+
+For any change touching secrets or environment variables:
+
+- Every secret must be stored in a `kubernetes_secret_v1`, NOT hardcoded in ConfigMap or env value
+- SMTP URI: ConfigMap YAML uses literal `smtp://resend:apikey@smtp.resend.com:587/` — real key comes from `COURIER_SMTP_CONNECTION_URI` env var via K8s Secret
+- Verify `terraform.tfvars` `smtp_connection_uri` and `resend_api_key` use the **same** key value
+
+
+## Step 6 — Service-to-Service Port Verification
+
+For any service that calls another service, verify:
+
+1. The K8s Service `spec.ports[].port` matches the URL used by the caller
+2. The K8s Service `spec.ports[].targetPort` matches the container's `containerPort`
+
+Known wiring (verify these are still correct):
+
+- `webhook-handler` → `ssr-backend.default.svc.cluster.local:8000` — **verify service exposes port 8000**
+- `oathkeeper` → `kratos-public.iam.svc.cluster.local:4433/sessions/whoami` ✅
+- `iam-app` → `kratos-public.iam.svc.cluster.local:4433` (ORY_SDK_URL) ✅
+- `ssr-backend` ingress → `oathkeeper-proxy.iam:4455` ✅
+
+
+## Step 7 — Validate Configuration
+
+```bash
+cd /Users/gqadonis/Projects/sansaba/v0-san-saba-royalty-iam/k8s/opentofu
+/opt/homebrew/bin/tofu validate
+```
+
+Expected: `Success! The configuration is valid.`
+
+
+## Step 8 — Write Topology Report
+
+Generate a dated topology report before committing. The report MUST include:
+
+1. Traffic flow diagram (text or mermaid)
+2. Services inventory (all namespaces)
+3. Ingress rules table
+4. Proxy/TLS trust checklist (step 2 results)
+5. CORS audit results (step 3 results)
+6. Cookie/session audit results (step 4 results)
+7. Secrets injection map (step 5 results)
+8. Service-to-service wiring (step 6 results)
+9. Open risks table
+
+Save to:
+
+```
+/Users/gqadonis/Projects/sansaba/v0-san-saba-royalty-iam/docs/infrastructure/topology-YYYY-MM-DD-HHmm.md
+```
+
+Use the current local time for the filename. Date format: `topology-2026-03-01-0823.md`
+
+
+## Step 9 — Commit
+
+Commit the topology report along with the infrastructure change in the same commit:
+
+```bash
+git add docs/infrastructure/topology-YYYY-MM-DD-HHmm.md
+git add k8s/
+git commit -m "infra(scope): description of change
+
+Topology report: docs/infrastructure/topology-YYYY-MM-DD-HHmm.md"
+git push
+```
+
+
+## Reference: Known Fixed Issues (Do Not Reintroduce)
+
+| Issue | Root Cause | Fix Location |
+|---|---|---|
+| Login/logout infinite redirect loop | `trusted_proxy_ip_cidrs` missing — Kratos bound CSRF to `http://` | `kratos.tf` `serve.public` — commit `faf6caf` |
+| Logout cookie domain mismatch | Next.js proxy rewrote all cookies unconditionally | `app/api/.ory/[...path]/route.ts` — commit `1f8471e` |
+| Email OTP not sending | `mfa_enabled` nested under `config` instead of top-level | `kratos.tf` methods.code — resolved |
+| Kratos CrashLoopBackOff | Invalid config key `second_factor_url` | `kratos.tf` — commit `1e41b75` |
+| CORS preflight failing | `OPTIONS` missing from Kratos CORS allowed_methods | `kratos.tf` — resolved |
+| Courier not sending email | `smtps://port-465` instead of `smtp://port-587` | `terraform.tfvars` smtp_connection_uri — commit `0b705e5` |

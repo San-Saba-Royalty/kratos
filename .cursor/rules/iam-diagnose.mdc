@@ -1,0 +1,62 @@
+---
+description: Diagnose IAM infrastructure issues using the ordered 7-step protocol — enter here when something breaks
+globs: *
+---
+# Slash Command: /iam-diagnose
+When the user types `/iam-diagnose`, you MUST follow these instructions strictly:
+
+
+# IAM Diagnose
+
+Systematic diagnosis of IAM infrastructure failures. Follow EVERY step in order. DO NOT SKIP. DO NOT GUESS.
+
+## Step 1 — Load the DIAGNOSE Skill
+
+Read `.agent/skills/ory-iam/diagnose/SKILL.md` for the full 7-step protocol.
+
+## Step 2 — Read the EXACT Error
+
+// turbo
+
+```bash
+kubectl logs -n iam deployment/kratos --tail=100 2>&1
+kubectl logs -n iam deployment/oathkeeper --tail=100 2>&1
+kubectl get pods -n iam
+```
+
+Copy the EXACT error message. Not a summary — the raw log line.
+
+## Step 3 — Match Against Knowledge Base
+
+// turbo
+Read ALL of these and search for the error:
+
+- `docs/desperate/skill-fixes-content-infrastructure/redirect-loop-patterns.md`
+- `docs/desperate/skill-fixes-content-infrastructure/oathkeeper-multi-app-cors.md`
+- `docs/desperate/skill-fixes-content-infrastructure/csrf-cookies-behind-proxy.md`
+- `docs/desperate/skill-fixes-content-infrastructure/kratos-2fa-mfa-config.md`
+
+If a match is found → apply ONLY the documented fix → proceed to `/iam-fix-plan`.
+
+## Step 4 — Trace the Request Path
+
+If NO match found, draw the full path:
+
+```
+BROWSER → Nginx ingress → [Oathkeeper?] → [Kratos?] → App
+```
+
+For each hop: what scheme, headers, cookies, error response?
+
+## Step 5 — Identify the Layer
+
+Nginx → Oathkeeper → Kratos → App proxy → DNS/TLS
+
+## Step 6 — Redirect Loop Protocol
+
+If the symptom is a redirect loop, check ALL items from `redirect-loop-patterns.md`.
+
+## Step 7 — Document and Proceed
+
+Document: which layer failed, which exact config/file is wrong, what the fix should be.
+Proceed to `/iam-fix-plan`.

@@ -1,0 +1,32 @@
+{
+  "marketplace_version": "1.0.0",
+  "name": "san-saba-skills",
+  "owner": {
+    "name": "San Saba Royalty"
+  },
+  "plugins": [
+    {
+      "name": "ory-iam",
+      "version": "1.0.0",
+      "description": "Full lifecycle Ory IAM management with 9-phase skill suite, validated knowledge base, pre-commit validation, and 14 automated post-deploy tests",
+      "path": "./",
+      "category": "infrastructure",
+      "tags": [
+        "ory",
+        "kratos",
+        "oathkeeper",
+        "identity",
+        "authentication",
+        "authorization",
+        "cors",
+        "csrf",
+        "2fa",
+        "nginx",
+        "kubernetes",
+        "opentofu",
+        "security",
+        "infrastructure"
+      ]
+    }
+  ]
+}

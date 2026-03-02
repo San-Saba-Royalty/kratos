@@ -1,0 +1,23 @@
+{
+  "name": "ory-iam",
+  "description": "Full lifecycle Ory IAM management: Design, Plan, Execute, Reflect, Assess, Diagnose, Fix-Plan, Fix-Exec, Validate. Covers Kratos + Oathkeeper configuration, 2FA, CORS, redirect loops, and automated testing.",
+  "version": "1.0.0",
+  "author": {
+    "name": "San Saba Royalty",
+    "url": "https://prometheusags.ai"
+  },
+  "license": "Proprietary",
+  "skills": [
+    "./design",
+    "./plan",
+    "./execute",
+    "./reflect",
+    "./assess",
+    "./diagnose",
+    "./fix-plan",
+    "./fix-exec",
+    "./validate"
+  ],
+  "hooks": null,
+  "mcpServers": null
+}
